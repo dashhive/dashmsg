@@ -8,11 +8,11 @@ builds:
   - id: dashmsg-default
     main: ./cmd/dashmsg/
     env:
-      - CGO_ENABLED=1
+      - CGO_ENABLED=0
     goos:
       - darwin
-      #- linux
-      #- windows
+      - linux
+      - windows
     goarch:
       - amd64
       - arm64

@@ -184,9 +184,11 @@ func DoubleHash(buf []byte) []byte {
 }
 
 // EncodeToBCVarint is a special variable-width byte encoding for 8, 16, 32, or 64-bit integers. For integers less than 253 bytes it uses a single bit. 253, 254, and 255 signify a 16, 32, and 64-bit (2, 4, and 8-byte) little-endian encodings respectively.
-func EncodeToBCVarint(n int) []byte {
+func EncodeToBCVarint(m int) []byte {
 	// See https://wiki.bitcoinsv.io/index.php/VarInt
 	var buf []byte
+
+	n := int64(m)
 
 	if n < 253 {
 		buf = make([]byte, 1)
