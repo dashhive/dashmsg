@@ -17,11 +17,18 @@ import (
 )
 
 var (
-	// CheckVersion is the magic version byte signifying the payment address coin type (i.e. Dash, Public Key)
-	CheckVersion = "4c" // Dash (vs 0x00 for BC)
+	// CheckVersion is the Base58Check magic version (coin / network type) byte signifying the payment address coin type (i.e. Dash, Public Key, mainnet)
+	CheckVersion = "4c" // Dash mainnet (vs 0x00 for BC)
 
-	// WIFVersion is the magic version byte signifying the wallet type (i.e. Dash, Private Key)
-	WIFVersion = "cc" // Dash (vs 0x80 for BC)
+	// CheckVersionTest is CheckVersion, but for testnet
+	CheckVersionTest = "8c" // Dash testnet
+
+	// WIFVersion is the Base58Check magic version (coin / network type) byte signifying the wallet type (i.e. Dash, Private Key, mainnet)
+	WIFVersion = "cc" // Dash mainnet (vs 0x80 for BC)
+
+	// WIFVersionTest is WIFVersion, but for testnet
+	WIFVersionTest = "ef" // Dash testnet
+
 	// MagicBytes is the secure delimiter that scopes a message to a particular network
 	MagicBytes = []byte("DarkCoin Signed Message:\n")
 )
@@ -29,26 +36,37 @@ var (
 var randReader io.Reader = rand.Reader
 
 // GenerateWIF creates a new wallet private key as WIF
-func GenerateWIF() string {
+func GenerateWIF(magicVersion string) string {
+	if "" == magicVersion {
+		magicVersion = WIFVersion
+	}
+	if CheckVersion == magicVersion {
+		magicVersion = WIFVersion
+	}
+	if CheckVersionTest == magicVersion {
+		magicVersion = WIFVersionTest
+	}
+
 	priv, _ := ecdsa.GenerateKey(secp256k1.S256(), randReader)
 	b := priv.D.Bytes()
 
 	hexkey := hex.EncodeToString(b)
 	compressed := "01"
-	wif, _ := base58check.Encode(WIFVersion, hexkey+compressed)
+	wif, _ := base58check.Encode(magicVersion, hexkey+compressed)
 
 	return wif
 }
 
-// WIFToPrivateKey converts from base58check (WIF) to a standard(ish) ECDSA private key
-func WIFToPrivateKey(wif string) (*ecdsa.PrivateKey, error) {
+// WIFToPrivateKey decodes the base58check (WIF) into the network magicVersion and a standard(ish) ECDSA private key
+func WIFToPrivateKey(wif string) (string, *ecdsa.PrivateKey, error) {
 	dHex, err := base58check.Decode(wif)
 	if nil != err {
-		return nil, err
+		return "", nil, err
 	}
 	// remove the "version" and "compressed" bytes
 	//fmt.Println("version:", dHex[0:2])
 	//fmt.Println("compressed:", dHex[66:])
+	magicVersion := dHex[0:2]
 	dHex = dHex[2:66]
 
 	// can't get error here because base58check passed
@@ -72,7 +90,18 @@ func WIFToPrivateKey(wif string) (*ecdsa.PrivateKey, error) {
 	//fmt.Println("PrivateKey:", hex.EncodeToString(di.Bytes()))
 	//fmt.Println("PublicKey (x):", hex.EncodeToString(x.Bytes()))
 	//fmt.Println("PublicKey (y):", hex.EncodeToString(y.Bytes()))
-	return priv, nil
+	return magicVersion, priv, nil
+}
+
+// AddressToCointype reads the magic version (coin / network type) from the base58check address
+func AddressToCointype(addr string) (string, error) {
+	dHex, err := base58check.Decode(addr)
+	if nil != err {
+		return "", err
+	}
+
+	magicVersion := dHex[0:2]
+	return magicVersion, nil
 }
 
 /*
@@ -108,10 +137,22 @@ func SigToPub(magichash, dsig []byte) (*ecdsa.PublicKey, error) {
 }
 
 // PublicKeyToAddress transforms a PublicKey into a PubKeyHash address is Base58Check format
-func PublicKeyToAddress(pub ecdsa.PublicKey) string {
+func PublicKeyToAddress(magicVersion string, pub ecdsa.PublicKey) string {
+	if "" == magicVersion {
+		magicVersion = CheckVersion
+	}
+	// just in case a private key was used to get the magic version
+	// (the name says "public key" and all, but...)
+	if WIFVersion == magicVersion {
+		magicVersion = CheckVersion
+	}
+	if WIFVersionTest == magicVersion {
+		magicVersion = CheckVersionTest
+	}
+
 	pubKeyHash := secp256k1crypto.PubkeyToAddress(pub).Bytes()
 	pubKeyHashHex := hex.EncodeToString(pubKeyHash)
-	addr, _ := base58check.Encode(CheckVersion, pubKeyHashHex)
+	addr, _ := base58check.Encode(magicVersion, pubKeyHashHex)
 	//fmt.Println("PubKeyHash Bytes:", pubKeyHash)
 	//fmt.Println("PubKeyHash:", addr)
 

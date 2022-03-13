@@ -3,7 +3,7 @@
 Sign and Verify messages with Dash Private Keys
 
 ```bash
-dashmsg sign \
+dashmsg sign --cointype 0x4c \
     'XK5DHnAiSj6HQNsNcDkawd9qdp8UFMdYftdVZFuRreTMJtbJhk8i' \
     'dte2022-akerdemelidis|estoever|mmason'
 ```
@@ -28,18 +28,18 @@ dashmsg help
 ```
 
 ```txt
-dashmsg v0.9.0 (gxxxxxx) 2022-03-12T01:33:52-0700
+dashmsg v0.9.1 (xxxxxxx) 2022-03-13T11:45:52-0700
 
 Usage
- dashmsg <command> [flags] args...
+    dashmsg <command> [flags] args...
 
 See usage: dashmsg help <command>
 
 Commands:
     version
-    gen [name.wif]
-    sign <key> <msg>
-    inspect <key | address | signature>
+    gen [--cointype '0xcc'] [name.wif]
+    sign [--cointype '0x4c'] <key> <msg>
+    inspect [--cointype '0x4c'] <key | address | signature>
     decode (alias of inspect)
     verify <payment address> <msg> <signature>
 

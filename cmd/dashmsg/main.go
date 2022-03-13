@@ -26,15 +26,15 @@ func usage() {
 	fmt.Println(ver())
 	fmt.Println()
 	fmt.Println("Usage")
-	fmt.Printf(" %s <command> [flags] args...\n", name)
+	fmt.Printf("    %s <command> [flags] args...\n", name)
 	fmt.Println("")
 	fmt.Printf("See usage: %s help <command>\n", name)
 	fmt.Println("")
 	fmt.Println("Commands:")
 	fmt.Println("    version")
-	fmt.Println("    gen [name.wif]")
-	fmt.Println("    sign <key> <msg>")
-	fmt.Println("    inspect <key | address | signature>")
+	fmt.Println("    gen [--cointype '0xcc'] [name.wif]")
+	fmt.Println("    sign [--cointype '0x4c'] <key> <msg>")
+	fmt.Println("    inspect [--cointype '0x4c'] <key | address | signature>")
 	fmt.Println("    decode (alias of inspect)")
 	fmt.Println("    verify <payment address> <msg> <signature>")
 	fmt.Println("")
@@ -99,13 +99,21 @@ func main() {
 }
 
 func gen(args []string) {
-	wif := dashmsg.GenerateWIF()
+	var cointype string
 
-	if len(args) == 1 {
+	flags := flag.NewFlagSet("gen", flag.ExitOnError)
+	flags.StringVar(&cointype, "cointype", "", "the magic version (hex) string of the private key")
+	flags.Parse(args)
+
+	cointype = strings.TrimPrefix(cointype, "0x")
+
+	wif := dashmsg.GenerateWIF(cointype)
+
+	if len(flags.Args()) == 1 {
 		b := []byte(wif)
 		b = append(b, '\n')
-		ioutil.WriteFile(args[0], b, 0644)
-		fmt.Printf("wrote Private Key (as WIF) to %q\n", args[0])
+		ioutil.WriteFile(flags.Args()[0], b, 0644)
+		fmt.Printf("wrote Private Key (as WIF) to %q\n", flags.Args()[0])
 		return
 	}
 
@@ -113,12 +121,20 @@ func gen(args []string) {
 }
 
 func inspect(args []string) {
-	if len(args) != 1 {
+	var cointype string
+
+	flags := flag.NewFlagSet("inspect", flag.ExitOnError)
+	flags.StringVar(&cointype, "cointype", "", "the magic version (hex) string of the private key")
+	flags.Parse(args)
+
+	cointype = strings.TrimPrefix(cointype, "0x")
+
+	if len(flags.Args()) != 1 {
 		fmt.Fprintf(os.Stderr, "usage: %s inspect <addr-or-key>\n", os.Args[0])
 		os.Exit(1)
 		return
 	}
-	input := args[0]
+	input := flags.Args()[0]
 
 	var usererr error
 	inputlen := len(input)
@@ -144,16 +160,19 @@ func inspect(args []string) {
 			break
 		}
 
-		priv, err := dashmsg.WIFToPrivateKey(wif)
+		privCointype, priv, err := dashmsg.WIFToPrivateKey(wif)
 		if nil != err {
 			usererr = err
 			break
 		}
+		if 0 == len(cointype) {
+			cointype = privCointype
+		}
 
 		pubBytes := dashmsg.MarshalPublicKey(priv.PublicKey)
-		pkh := dashmsg.PublicKeyToAddress(priv.PublicKey)
+		pkh := dashmsg.PublicKeyToAddress(cointype, priv.PublicKey)
 
-		fmt.Printf("PrivateKey (hex): %s (coin type)\n", hexstr[:2])
+		fmt.Printf("PrivateKey (hex): %s (coin type)\n", privCointype)
 		fmt.Printf("                : %s\n", hexstr[2:66])
 		fmt.Printf("                : %s (compressed)\n", hexstr[66:])
 		fmt.Println()
@@ -184,8 +203,13 @@ func inspect(args []string) {
 }
 
 func sign(args []string) {
+	var cointype string
+
 	flags := flag.NewFlagSet("sign", flag.ExitOnError)
+	flags.StringVar(&cointype, "cointype", "", "the magic version (hex) string of the private key")
 	flags.Parse(args)
+
+	cointype = strings.TrimPrefix(cointype, "0x")
 
 	if len(flags.Args()) <= 1 {
 		fmt.Fprintf(os.Stderr, "usage: %s sign <addr-or-key> <msg>\n", os.Args[0])
@@ -195,7 +219,7 @@ func sign(args []string) {
 	wifname := flags.Args()[0]
 	payload := flags.Args()[1]
 
-	priv, err := readWif(wifname)
+	_, priv, err := readWif(wifname)
 	if nil != err {
 		fmt.Fprintf(os.Stderr, "error: could not decode private key: %v\n", err)
 		os.Exit(1)
@@ -252,7 +276,15 @@ func verify(args []string) {
 		return
 	}
 
-	if dashmsg.PublicKeyToAddress(*pub) == addr {
+	cointype, err := dashmsg.AddressToCointype(addr)
+	if nil != err {
+		// Neither a valid file nor string. Blast!
+		fmt.Printf("can't detect coin type of %q: %v\n", addr, err)
+		os.Exit(1)
+		return
+	}
+
+	if dashmsg.PublicKeyToAddress(cointype, *pub) == addr {
 		fmt.Println("Verified: true")
 		return
 	}
@@ -270,18 +302,18 @@ func readFileOrString(str string) []byte {
 	return b
 }
 
-func readWif(wifname string) (*ecdsa.PrivateKey, error) {
+func readWif(wifname string) (string, *ecdsa.PrivateKey, error) {
 	// Read as file
 	wif := readFileOrString(wifname)
 
-	priv, err := dashmsg.WIFToPrivateKey(string(wif))
+	cointype, priv, err := dashmsg.WIFToPrivateKey(string(wif))
 	if nil != err {
 		// Neither a valid file nor string. Blast!
-		return nil, fmt.Errorf(
+		return "", nil, fmt.Errorf(
 			"could not read private key as file (or parse as string) %q:\n%s",
 			wifname, err,
 		)
 	}
 
-	return priv, nil
+	return cointype, priv, nil
 }
