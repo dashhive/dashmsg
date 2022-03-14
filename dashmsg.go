@@ -15,6 +15,7 @@ import (
 	"github.com/anaskhan96/base58check"
 	secp256k1crypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
+	"golang.org/x/crypto/ripemd160"
 )
 
 var (
@@ -184,11 +185,23 @@ func PublicKeyToAddress(magicVersion string, pub ecdsa.PublicKey) string {
 		magicVersion = CheckVersionTest
 	}
 
-	pubKeyHash := secp256k1crypto.PubkeyToAddress(pub).Bytes()
+	b := elliptic.Marshal(secp256k1crypto.S256(), pub.X, pub.Y)
+	b[0] = byte(0x03)
+	b = b[0:33]
+	//fmt.Fprintf(os.Stderr, "PubKey Bytes: %d %v\n", len(b), hex.EncodeToString(b))
+
+	hash1 := sha256.Sum256(b)
+	md := ripemd160.New()
+	_, _ = md.Write(hash1[:])
+	hash2 := md.Sum(nil)
+	pubKeyHash := hash2[:]
+
+	//pubKeyHash := secp256k1crypto.PubkeyToAddress(pub).Bytes()
 	pubKeyHashHex := hex.EncodeToString(pubKeyHash)
 	addr, _ := base58check.Encode(magicVersion, pubKeyHashHex)
-	//fmt.Println("PubKeyHash Bytes:", pubKeyHash)
-	//fmt.Println("PubKeyHash:", addr)
+	//fmt.Fprintf(os.Stderr, "PubKeyHash Bytes: %v\n", pubKeyHash)
+	//fmt.Fprintf(os.Stderr, "PubKeyHash Hex: %q\n", pubKeyHashHex)
+	//fmt.Fprintf(os.Stderr, "PubKeyHash: %q\n", addr)
 
 	return addr
 }
