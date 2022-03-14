@@ -67,6 +67,21 @@ pushd ./dashmsg/
 go build -mod=vendor -o dashmsg ./cmd/dashmsg/
 ```
 
+### GoReleaser
+
+Because one of the dependencies requires `CGO_ENABLED=1` and uses low-level syscalls (I have no idea why - probably completely unnecessary), it must be built on and released from the respective OSes.
+
+```bash
+goreleaser -f .goreleaser.yml --rm-dist --single-target --skip-validate
+```
+
+```txt
+--single-target - build only for the current OS
+--skip-validate - uploads the image even though it can update the checksums
+```
+
+**Note**: MacOS actually can build both the amd64 and arm64 versions on an M1.
+
 ## Go Library
 
 Documentation at <https://pkg.go.dev/github.com/dashhive/dashmsg>.
