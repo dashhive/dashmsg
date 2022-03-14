@@ -257,39 +257,17 @@ func verify(args []string) {
 	addr := string(addrBytes)
 
 	msg := readFileOrString(msgname)
-	magichash := dashmsg.MagicHash(msg)
 
 	sigBytes := readFileOrString(signame)
 	sig := string(sigBytes)
 
-	sigBytes, err := base64.StdEncoding.DecodeString(sig)
-	if nil != err {
-		fmt.Fprintf(os.Stderr, "error: could not decode signature: %v\n", err)
+	if err := dashmsg.MagicVerify(addr, msg, sig); nil != err {
+		fmt.Fprintf(os.Stderr, "error: %v", err)
 		os.Exit(1)
 		return
 	}
 
-	pub, err := dashmsg.SigToPub(magichash, sigBytes)
-	if nil != err {
-		fmt.Fprintf(os.Stderr, "error: could not verify message: %v\n", err)
-		os.Exit(1)
-		return
-	}
-
-	cointype, err := dashmsg.AddressToCointype(addr)
-	if nil != err {
-		// Neither a valid file nor string. Blast!
-		fmt.Printf("can't detect coin type of %q: %v\n", addr, err)
-		os.Exit(1)
-		return
-	}
-
-	if dashmsg.PublicKeyToAddress(cointype, *pub) == addr {
-		fmt.Println("Verified: true")
-		return
-	}
-
-	fmt.Println("Invalid Signature")
+	fmt.Println("Verified: true")
 }
 
 func readFileOrString(str string) []byte {

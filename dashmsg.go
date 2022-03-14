@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"math/big"
 
@@ -122,6 +123,39 @@ func MagicSign(priv *ecdsa.PrivateKey, msg []byte) ([]byte, error) {
 	//hex := hex.EncodeToString(sig)
 
 	return sig, nil
+}
+
+// Base64 indicates that the given string should be Base64 encoded (std, with padding)
+type Base64 = string
+
+// Base58Check indicates that the given string should be in Base58Check encoded (coint type prefix on double hash of public key, BaseX-style Base58 encoding)
+type Base58Check = string
+
+// MagicVerify checks that the given public key hash payment address can be used to verify the given base64 signature and arbitrary message
+func MagicVerify(addr Base58Check, msg []byte, sig Base64) error {
+	sigBytes, err := base64.StdEncoding.DecodeString(sig)
+	if nil != err {
+		return fmt.Errorf("could not decode signature: %w", err)
+	}
+
+	magichash := MagicHash(msg)
+	pub, err := SigToPub(magichash, sigBytes)
+	if nil != err {
+		return fmt.Errorf("could not verify message: %w", err)
+	}
+
+	cointype, err := AddressToCointype(addr)
+	if nil != err {
+		// Neither a valid file nor string. Blast!
+		return fmt.Errorf("can't detect coin type of %q: %v", addr, err)
+	}
+
+	guess := PublicKeyToAddress(cointype, *pub)
+	if guess == addr {
+		return nil
+	}
+
+	return fmt.Errorf("signature's public key hash payment address %q does not match given address %q", guess, addr)
 }
 
 // SigToPub computes the public key from the message's magichash and the recovery signature (has the magic byte, a.k.a. "i" at the front of it)
