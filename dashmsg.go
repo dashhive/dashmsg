@@ -186,7 +186,15 @@ func PublicKeyToAddress(magicVersion string, pub ecdsa.PublicKey) string {
 	}
 
 	b := elliptic.Marshal(secp256k1crypto.S256(), pub.X, pub.Y)
-	b[0] = byte(0x03)
+	y := b[33:]
+	lastY := len(y) - 1
+	odd := 1 == y[lastY]%2
+	if odd {
+		b[0] = byte(0x03)
+	} else {
+		b[0] = byte(0x02)
+	}
+
 	b = b[0:33]
 	//fmt.Fprintf(os.Stderr, "PubKey Bytes: %d %v\n", len(b), hex.EncodeToString(b))
 
