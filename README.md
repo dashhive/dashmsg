@@ -10,7 +10,7 @@ dashmsg sign --cointype 0x4c \
 
 ```bash
 dashmsg verify \
-    'Xn4A2vv5fb7LvmiiXPPMexYbSbiQ29rzDu' \
+    'XyBmeuLa8y3D3XmzPvCTj5PVh7WvMPkLn1' \
     'dte2022-akerdemelidis|estoever|mmason' \
     'H2Opy9NX72iPZRcDVEHrFn2qmVwWMgc+DKILdVxl1yfmcL2qcpu9esw9wcD7RH0/dJHnIISe5j39EYahorWQM7I='
 ```
